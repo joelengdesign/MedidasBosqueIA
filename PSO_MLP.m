@@ -1,0 +1,223 @@
+function params = PSO_MLP(dadosTreino, dadosValidacao, dadosTeste, num_particles, max_epochs)
+
+
+num_dimensions = 2;   % Quatro pesos (A, B, C, D)
+min_val_fitness = inf;
+% Geração inicial das partículas normalizadas
+particles = round(40 * rand(num_particles, num_dimensions));
+particles = corrigirParticulas(particles, 5, 40);
+% particles = particles ./ sum(particles, 2);
+
+w = 0.9;             % Inércia inicial
+c1 = 1.2;           % Coeficiente cognitivo
+c2 = 1.2;           % Coeficiente social
+
+% Inicialização das partículas
+velocities = zeros(num_particles, num_dimensions);
+
+% fig = figure('Visible', 'off');
+% fig.Position = [100, 100, 1280, 720];  % Resolução do vídeo
+% 
+% outputFolder = fullfile(pwd, 'videos');
+% if ~exist(outputFolder, 'dir')
+%     mkdir(outputFolder);
+% end
+
+
+tic
+parpool('IdleTimeout', 34560);
+for k=1:num_particles
+    for l=1:length(dadosTreino)
+        for s = 1:10
+            rng(s)
+            A = particles(k,:);
+            if any(particles(k,:) == 0)
+                estrutura = A(A>0);
+            else
+                estrutura = A;
+            end
+            model = feedforwardnet(estrutura);
+            model.trainParam.showWindow = false;
+            % Concatenar os dados
+            dados = [dadosTreino{l}; dadosValidacao{l}; dadosTeste{l}];
+
+            % Separar entradas e saídas
+            X = dados(:,1:end-1)';  % Entradas
+            Y = dados(:,end)';      % Saída (alvo)
+
+            % Determinar os índices
+            nTreino = size(dadosTreino{l}, 1);
+            nVal    = size(dadosValidacao{l}, 1);
+            nTeste  = size(dadosTeste{l}, 1);
+
+            % Criar vetor de índices
+            trainInd = 1:nTreino;
+            valInd   = (nTreino+1):(nTreino+nVal);
+            testInd  = (nTreino+nVal+1):(nTreino+nVal+nTeste);
+
+            % Definir divisão na rede
+            model.divideFcn = 'divideind';
+            model.divideParam.trainInd = trainInd;
+            model.divideParam.valInd   = valInd;
+            model.divideParam.testInd  = testInd;
+            [model, tr] = train(model,X, Y);
+
+            % Calcular outputs da rede
+            outputs = model(X);
+
+            % Avaliar apenas nos dados de teste
+            testTargets = Y(tr.testInd);
+            testOutputs = outputs(tr.testInd);
+            
+            % Calcular desempenho (MSE por padrão)
+            fit(l,s) = perform(model, testTargets, testOutputs);
+        end
+    end
+    fitness(k) = mean(fit(:));
+end
+
+subplot(3,1,1)
+plot(fitness)
+
+
+
+
+
+
+% Inicialização das melhores posições
+pbest = particles;
+pbest_fitness = fitness;
+[gbest_fitness, best_idx] = min(pbest_fitness);
+gbest = pbest(best_idx, :);
+
+% Loop principal do PSO
+for epoch = 1:max_epochs
+    % Atualização das velocidades e posições
+    r1 = rand(num_particles, num_dimensions);
+    r2 = rand(num_particles, num_dimensions);
+    velocities = w * velocities + ...
+        c1 * r1 .* (pbest - particles) + ...
+        c2 * r2 .* (gbest - particles);
+    particles = particles + velocities;
+    particles = corrigirParticulas(particles, 5, 40);
+
+    for k=1:num_particles
+        for l=1:length(dadosTreino)
+            for s = 1:10
+                rng(s)
+                A = particles(k,:);
+                if any(particles(k,:) == 0)
+                    estrutura = A(A>0);
+                else
+                    estrutura = A;
+                end
+                model = feedforwardnet(estrutura);
+                model.trainParam.showWindow = false;
+                % Concatenar os dados
+                dados = [dadosTreino{l}; dadosValidacao{l}; dadosTeste{l}];
+
+                % Separar entradas e saídas
+                X = dados(:,1:end-1)';  % Entradas
+                Y = dados(:,end)';      % Saída (alvo)
+
+                % Determinar os índices
+                nTreino = size(dadosTreino{l}, 1);
+                nVal    = size(dadosValidacao{l}, 1);
+                nTeste  = size(dadosTeste{l}, 1);
+
+                % Criar vetor de índices
+                trainInd = 1:nTreino;
+                valInd   = (nTreino+1):(nTreino+nVal);
+                testInd  = (nTreino+nVal+1):(nTreino+nVal+nTeste);
+
+                % Definir divisão na rede
+                model.divideFcn = 'divideind';
+                model.divideParam.trainInd = trainInd;
+                model.divideParam.valInd   = valInd;
+                model.divideParam.testInd  = testInd;
+                [model, tr] = train(model,X, Y);
+
+                % Calcular outputs da rede
+                outputs = model(X);
+
+                % Avaliar apenas nos dados de teste
+                testTargets = Y(tr.testInd);
+                testOutputs = outputs(tr.testInd);
+
+                % Calcular desempenho (MSE por padrão)
+                fit(l,s) = perform(model, testTargets, testOutputs);
+                clear model;
+
+            end
+        end
+        fitness(k) = mean(fit(:));
+    end
+    
+    % Atualização das melhores posições individuais
+    improved = fitness < pbest_fitness;
+    pbest(improved, :) = particles(improved, :);
+    pbest_fitness(improved) = fitness(improved);
+
+    % Atualização do melhor global
+    [min_fitness, min_idx] = min(pbest_fitness);
+    if min_fitness < gbest_fitness
+        gbest_fitness = min_fitness;
+        gbest = pbest(min_idx, :);
+    end
+    
+    % Armazena histórico
+    best_fitness_hist(epoch) = gbest_fitness;
+    avg_fitness_hist(epoch) = mean(fitness);
+
+end
+delete(gcp);
+
+params.Weights = best_gbest;
+params.RMSETrain = best_gbest_fitness;
+params.RMSETest = fitnessTest;
+params.bestFitnessHistoryTrain = best_fitness_hist;
+params.bestFitnessHistoryValid = fitnessValid;
+params.bestEpoch = best_epoch;
+
+
+
+    function particlesCorrigidas = corrigirParticulas(particles, min_neurons, max_neurons)
+        % CORRIGIRPARTICULAS - Corrige partículas conforme restrições:
+        % 1. Ambas < min_neurons -> uma = min_neurons, outra = 0
+        % 2. Apenas uma < min_neurons -> essa vira 0, a outra permanece
+        % 3. Nenhuma camada pode ultrapassar max_neurons
+
+        particlesCorrigidas = round(particles); % Arredonda os valores
+
+        for i = 1:size(particlesCorrigidas, 1)
+            p = particlesCorrigidas(i, :);
+
+            % Garante que não ultrapassem o máximo
+            p(p > max_neurons) = max_neurons;
+
+            % Verifica quantas estão abaixo do mínimo
+            below_min = p < min_neurons;
+
+            if all(below_min)
+                % Ambas abaixo do mínimo → uma recebe min, a outra 0
+                idx = randi(2);
+                p(idx) = min_neurons;
+                p(3 - idx) = 0;
+
+            elseif any(below_min)
+                % Apenas uma está abaixo → ela vira 0, a outra permanece
+                for j = 1:2
+                    if p(j) < min_neurons && p(3 - j) >= min_neurons
+                        p(j) = 0;
+                    end
+                end
+            end
+
+            particlesCorrigidas(i, :) = p;
+        end
+    end
+
+
+
+
+end
