@@ -48,7 +48,7 @@ end
 
 videoPath = fullfile(outputFolder, 'EvolucaoTreinamentoPSOMLP');
 video = VideoWriter(videoPath, 'Motion JPEG AVI');
-video.FrameRate = 15;
+video.FrameRate = 5;
 open(video);
 
 minimoFit = Inf;
