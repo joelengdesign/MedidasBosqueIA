@@ -100,8 +100,8 @@ for k=1:num_particles
     end
     fitness(k) = mean(fit);
 
-    if min(fitness(k)) < minimoFit
-        minimoFit = min(fitness(k));
+    if min(fitness) < minimoFit
+        minimoFit = min(fitness);
         net = model;
     end
 end
