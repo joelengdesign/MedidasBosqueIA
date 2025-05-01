@@ -273,9 +273,9 @@ for epoch = 1:max_epochs
     set(p1_1, 'XData', gbest(1), 'YData', gbest(2));
 
     subplot(2,2,2)
-    plot(k,mean(fitness),'bs-','LineWidth',1.5,'Markersize',6)
+    plot(epoch,mean(fitness),'bs-','LineWidth',1.5,'Markersize',6)
     hold on
-    plot(k,gbest_fitness,'r*-','LineWidth',1.5,'Markersize',6)
+    plot(epoch,gbest_fitness,'r*-','LineWidth',1.5,'Markersize',6)
 
     subplot(2,2,3)
     set(p3, 'YData', y_net1);
