@@ -273,7 +273,7 @@ for epoch = 1:max_epochs
     avg_fitness_hist = mean(fitness);
     
 
-    x_data(end+1) = k;
+    x_data(end+1) = epoch;
     y_data1(end+1) = mean(fitness);
     y_data2(end+1) = gbest_fitness;
 
