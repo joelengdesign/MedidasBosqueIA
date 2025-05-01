@@ -134,6 +134,7 @@ grid minor
 xlabel('Primeira Camada')
 ylabel('Segunda Camada')
 title('Evolução da População')
+legend('Partículas','Melhor partícula')
 xlim([-4 42])
 ylim([-4 42])
 hold off
@@ -146,7 +147,7 @@ grid on
 grid minor
 xlabel('Épocas')
 ylabel('Fitness')
-title('Evolução do treinamento')
+title('Evolução da fitness do PSO')
 hold off
 xlim([-3 53])
 ylim([0 10])
