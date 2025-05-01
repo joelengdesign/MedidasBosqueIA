@@ -1,6 +1,6 @@
 function params = PSO_MLP(DataTrain, DataValid, DataTest, num_particles, max_epochs)
 
-SF = 7;
+SF = 12;
 polarizacao = 1;
 altura1 = 50;
 altura2 = 110;
@@ -126,7 +126,7 @@ y_net2 = y(ind2);
 
 subplot(2,2,1)
 [~,indiceBest] = min(fitness);
-p1_0 = plot(particles(:,1),particles(:,2),'bx','LineWidth',2,'MarkerSize',10)
+p1_0 = plot(particles(:,1),particles(:,2),'bx','LineWidth',2,'MarkerSize',10);
 hold on
 p1_1 = plot(particles(indiceBest,1),particles(indiceBest,2),'ro','LineWidth',2,'MarkerSize',15);
 grid on
@@ -139,29 +139,33 @@ xlim([-4 42])
 ylim([-4 42])
 hold off
 
+
+x_data = 0;
+y_data1 = mean(fitness);
+y_data2 = min(fitness);
 subplot(2,2,2)
-plot(0,mean(fitness),'bs-','LineWidth',2);
+p2_avg = plot(x_data,y_data1,'b','LineWidth',2);
 hold on
-plot(0,min(fitness),'rs-','LineWidth',2)
+p2_best = plot(x_data,y_data2,'r','LineWidth',2);
 grid on
 grid minor
 xlabel('Épocas')
 ylabel('Fitness')
 title('Evolução da fitness do PSO')
 hold off
-xlim([-3 53])
+xlim([-3 max_epochs+3])
 ylim([0 10])
 legend('avg fitness','best fitness')
 
 subplot(2,2,3)
 plot(x1,y1,'bo','LineWidth',2,'MarkerSize',5)
 hold on
-p3 = plot(x1,y_net1,'ks-','LineWidth',3);
+p3 = plot(x1,y_net1,'k','LineWidth',3);
 grid on
 grid minor
 xlabel('distância radial')
 ylabel('atenuação janelada')
-title('Cenário SF7 - HH - 50m')
+title('Cenário SF12 - HH - 50m')
 legend('Saída Real','MLP')
 
 subplot(2,2,4)
@@ -172,7 +176,7 @@ grid on
 grid minor
 xlabel('distância radial')
 ylabel('atenuação janelada')
-title('Cenário SF7 - HH - 110m')
+title('Cenário SF12 - HH - 110m')
 legend('Saída Real','MLP')
 sgtitle('Época: 0')
 
@@ -199,7 +203,7 @@ for epoch = 1:max_epochs
     particles = corrigirParticulas(particles, 5, 40);
 
     for k=1:num_particles
-        for s = 1:10
+        for s = 10:20
             rng(s)
             A = particles(k,:);
             if any(particles(k,:) == 0)
@@ -241,7 +245,7 @@ for epoch = 1:max_epochs
             testOutputs = outputs(tr.testInd);
 
             % Calcular desempenho (MSE por padrão)
-            fit(s) = sqrt(perform(model, testTargets, testOutputs));
+            fit(s-9) = sqrt(perform(model, testTargets, testOutputs));
 
         end
         fitness(k) = mean(fit);
@@ -267,15 +271,19 @@ for epoch = 1:max_epochs
 
     % Armazena histórico
     avg_fitness_hist = mean(fitness);
+    
+
+    x_data(end+1) = k;
+    y_data1(end+1) = mean(fitness);
+    y_data2(end+1) = gbest_fitness;
 
     subplot(2,2,1)
     set(p1_0, 'XData', particles(:,1), 'YData', particles(:,2));
     set(p1_1, 'XData', gbest(1), 'YData', gbest(2));
 
     subplot(2,2,2)
-    plot(epoch,mean(fitness),'bs-','LineWidth',1.5,'Markersize',6)
-    hold on
-    plot(epoch,gbest_fitness,'r*-','LineWidth',1.5,'Markersize',6)
+    set(p2_avg, 'XData', x_data, 'YData', y_data1);
+    set(p2_best, 'XData', x_data, 'YData', y_data2);
 
     subplot(2,2,3)
     set(p3, 'YData', y_net1);
