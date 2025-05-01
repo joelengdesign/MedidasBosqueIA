@@ -1,5 +1,27 @@
-function params = PSO_MLP(dadosTreino, dadosValidacao, dadosTeste, num_particles, max_epochs)
+function params = PSO_MLP(DataTrain, DataValid, DataTest, num_particles, max_epochs)
 
+SF = 7;
+polarizacao = 1;
+altura1 = 50;
+altura2 = 110;
+
+% separação dos dados para utilização dos modelos
+
+% ============= Entrada ============== %
+% distância entre Tx e RX em metros
+% Spreading Factor
+% Altura
+
+% ============== Saída ============== %
+% Atenuação - Pathloss(Referência) - Pathloss(Floresta)
+dadosTreino = DataTrain.Tabela_Atenuacao_Janelada{:,[14 4:5 12]};
+dadosTreino(:,1:end-1) = (dadosTreino(:,1:end-1) - min(dadosTreino(:,1:end-1), [], 1)) ./ (max(dadosTreino(:,1:end-1), [], 1) - min(dadosTreino(:,1:end-1), [], 1));
+
+dadosTeste = DataTest.Tabela_Atenuacao_Janelada{:,[14 4:5 12]};
+dadosTeste(:,1:end-1) = (dadosTeste(:,1:end-1) - min(dadosTeste(:,1:end-1), [], 1)) ./ (max(dadosTeste(:,1:end-1), [], 1) - min(dadosTeste(:,1:end-1), [], 1));
+
+dadosValidacao = DataValid.Tabela_Atenuacao_Janelada{:,[14 4:5 12]};
+dadosValidacao(:,1:end-1) = (dadosValidacao(:,1:end-1) - min(dadosValidacao(:,1:end-1), [], 1)) ./ (max(dadosValidacao(:,1:end-1), [], 1) - min(dadosValidacao(:,1:end-1), [], 1));
 
 num_dimensions = 2;   % Quatro pesos (A, B, C, D)
 min_val_fitness = inf;
@@ -15,72 +37,146 @@ c2 = 1.2;           % Coeficiente social
 % Inicialização das partículas
 velocities = zeros(num_particles, num_dimensions);
 
-% fig = figure('Visible', 'off');
-% fig.Position = [100, 100, 1280, 720];  % Resolução do vídeo
-% 
-% outputFolder = fullfile(pwd, 'videos');
-% if ~exist(outputFolder, 'dir')
-%     mkdir(outputFolder);
-% end
+fig = figure('Visible', 'off');
+fig.Position = [100, 100, 1280, 720];  % Resolução do vídeo
 
-
-tic
-parpool('IdleTimeout', 34560);
-for k=1:num_particles
-    for l=1:length(dadosTreino)
-        for s = 1:10
-            rng(s)
-            A = particles(k,:);
-            if any(particles(k,:) == 0)
-                estrutura = A(A>0);
-            else
-                estrutura = A;
-            end
-            model = feedforwardnet(estrutura);
-            model.trainParam.showWindow = false;
-            % Concatenar os dados
-            dados = [dadosTreino{l}; dadosValidacao{l}; dadosTeste{l}];
-
-            % Separar entradas e saídas
-            X = dados(:,1:end-1)';  % Entradas
-            Y = dados(:,end)';      % Saída (alvo)
-
-            % Determinar os índices
-            nTreino = size(dadosTreino{l}, 1);
-            nVal    = size(dadosValidacao{l}, 1);
-            nTeste  = size(dadosTeste{l}, 1);
-
-            % Criar vetor de índices
-            trainInd = 1:nTreino;
-            valInd   = (nTreino+1):(nTreino+nVal);
-            testInd  = (nTreino+nVal+1):(nTreino+nVal+nTeste);
-
-            % Definir divisão na rede
-            model.divideFcn = 'divideind';
-            model.divideParam.trainInd = trainInd;
-            model.divideParam.valInd   = valInd;
-            model.divideParam.testInd  = testInd;
-            [model, tr] = train(model,X, Y);
-
-            % Calcular outputs da rede
-            outputs = model(X);
-
-            % Avaliar apenas nos dados de teste
-            testTargets = Y(tr.testInd);
-            testOutputs = outputs(tr.testInd);
-            
-            % Calcular desempenho (MSE por padrão)
-            fit(l,s) = perform(model, testTargets, testOutputs);
-        end
-    end
-    fitness(k) = mean(fit(:));
+outputFolder = fullfile(pwd, '..', 'videos');
+outputFolder = fullfile(outputFolder);  % resolve o caminho completo
+if ~exist(outputFolder, 'dir')
+    mkdir(outputFolder);
 end
 
-subplot(3,1,1)
-plot(fitness)
+videoPath = fullfile(outputFolder, 'EvolucaoTreinamentoPSOMLP.mp4');
+video = VideoWriter(videoPath, 'MPEG-4');
+video.FrameRate = 15;
+open(video);
+
+minimoFit = Inf;
+
+parpool('IdleTimeout', 34560);
+for k=1:num_particles
+    for s = 1:10
+        rng(s)
+        A = particles(k,:);
+        if any(particles(k,:) == 0)
+            estrutura = A(A>0);
+        else
+            estrutura = A;
+        end
+        model = feedforwardnet(estrutura);
+        model.trainParam.showWindow = false;
+        % Concatenar os dados
+        dados = [dadosTreino; dadosValidacao; dadosTeste];
+
+        % Separar entradas e saídas
+        X = dados(:,1:end-1)';  % Entradas
+        Y = dados(:,end)';      % Saída (alvo)
+
+        % Determinar os índices
+        nTreino = size(dadosTreino, 1);
+        nVal    = size(dadosValidacao, 1);
+        nTeste  = size(dadosTeste, 1);
+
+        % Criar vetor de índices
+        trainInd = 1:nTreino;
+        valInd   = (nTreino+1):(nTreino+nVal);
+        testInd  = (nTreino+nVal+1):(nTreino+nVal+nTeste);
+
+        % Definir divisão na rede
+        model.divideFcn = 'divideind';
+        model.divideParam.trainInd = trainInd;
+        model.divideParam.valInd   = valInd;
+        model.divideParam.testInd  = testInd;
+        [model, tr] = train(model,X, Y);
+
+        % Calcular outputs da rede
+        outputs = model(X);
+
+        % Avaliar apenas nos dados de teste
+        testTargets = Y(tr.testInd);
+        testOutputs = outputs(tr.testInd);
+
+        % Calcular desempenho (MSE por padrão)
+        fit(s) = sqrt(perform(model, testTargets, testOutputs));
+    end
+    fitness(k) = mean(fit);
+
+    if min(fitness(k)) < minimoFit
+        minimoFit = min(fitness(k));
+        net = model;
+    end
+end
+
+ind1 = DataTest.Tabela_Atenuacao_Janelada.SF == SF &...
+    DataTest.Tabela_Atenuacao_Janelada.altura == altura1&...
+    DataTest.Tabela_Atenuacao_Janelada.polarizacaoNum == polarizacao;
+
+ind2 = DataTest.Tabela_Atenuacao_Janelada.SF == SF &...
+    DataTest.Tabela_Atenuacao_Janelada.altura == altura2&...
+    DataTest.Tabela_Atenuacao_Janelada.polarizacaoNum == polarizacao;
+
+x1 = DataTest.Tabela_Atenuacao_Janelada.distanciasR(ind1);
+y1 = DataTest.Tabela_Atenuacao_Janelada.atenuacao_media(ind1);
+y= net(X);
+y_net1 = y(ind1);
+
+x2 = DataTest.Tabela_Atenuacao_Janelada.distanciasR(ind2);
+y2 = DataTest.Tabela_Atenuacao_Janelada.atenuacao_media(ind2);
+y_net2 = y(ind2);
 
 
+subplot(2,2,1)
+[~,indiceBest] = min(fitness);
+plot(particles(:,1),particles(:,2),'bx','LineWidth',2,'MarkerSize',10)
+hold on
+plot(particles(indiceBest,1),particles(indiceBest,2),'ro','LineWidth',2,'MarkerSize',15)
+grid on
+grid minor
+xlabel('Primeira Camada')
+ylabel('Segunda Camada')
+title('População')
+xlim([-4 42])
+ylim([-4 42])
+hold off
 
+subplot(2,2,2)
+plot(1,mean(fitness),'bs-','LineWidth',1.5,'Markersize',6)
+hold on
+plot(1,min(fitness),'r*-','LineWidth',1.5,'Markersize',6)
+grid on
+grid minor
+xlabel('Épocas')
+ylabel('Fitness')
+title('PSO - Época 0')
+hold off
+xlim([-3 53])
+ylim([0 10])
+legend('fitness avg','best fitness')
+
+subplot(2,2,3)
+plot(x1,y1,'bo','LineWidth',1.5,'MarkerSize',6)
+hold on
+plot(x1,y_net1,'k','LineWidth',3)
+grid on
+grid minor
+xlabel('distância radial')
+ylabel('atenuação janelada')
+title('Cenário SF7 - HH - 50m')
+legend('Saída Real','MLP')
+
+subplot(2,2,4)
+plot(x2,y2,'bo','LineWidth',1.5,'MarkerSize',6)
+hold on
+plot(x2,y_net2,'k','LineWidth',3)
+grid on
+grid minor
+xlabel('distância radial')
+ylabel('atenuação janelada')
+title('Cenário SF7 - HH - 110m')
+legend('Saída Real','MLP')
+drawnow;
+frame = getframe(fig);
+writeVideo(video, frame);
 
 
 
@@ -102,55 +198,53 @@ for epoch = 1:max_epochs
     particles = corrigirParticulas(particles, 5, 40);
 
     for k=1:num_particles
-        for l=1:length(dadosTreino)
-            for s = 1:10
-                rng(s)
-                A = particles(k,:);
-                if any(particles(k,:) == 0)
-                    estrutura = A(A>0);
-                else
-                    estrutura = A;
-                end
-                model = feedforwardnet(estrutura);
-                model.trainParam.showWindow = false;
-                % Concatenar os dados
-                dados = [dadosTreino{l}; dadosValidacao{l}; dadosTeste{l}];
-
-                % Separar entradas e saídas
-                X = dados(:,1:end-1)';  % Entradas
-                Y = dados(:,end)';      % Saída (alvo)
-
-                % Determinar os índices
-                nTreino = size(dadosTreino{l}, 1);
-                nVal    = size(dadosValidacao{l}, 1);
-                nTeste  = size(dadosTeste{l}, 1);
-
-                % Criar vetor de índices
-                trainInd = 1:nTreino;
-                valInd   = (nTreino+1):(nTreino+nVal);
-                testInd  = (nTreino+nVal+1):(nTreino+nVal+nTeste);
-
-                % Definir divisão na rede
-                model.divideFcn = 'divideind';
-                model.divideParam.trainInd = trainInd;
-                model.divideParam.valInd   = valInd;
-                model.divideParam.testInd  = testInd;
-                [model, tr] = train(model,X, Y);
-
-                % Calcular outputs da rede
-                outputs = model(X);
-
-                % Avaliar apenas nos dados de teste
-                testTargets = Y(tr.testInd);
-                testOutputs = outputs(tr.testInd);
-
-                % Calcular desempenho (MSE por padrão)
-                fit(l,s) = perform(model, testTargets, testOutputs);
-                clear model;
-
+        for s = 1:10
+            rng(s)
+            A = particles(k,:);
+            if any(particles(k,:) == 0)
+                estrutura = A(A>0);
+            else
+                estrutura = A;
             end
+            model = feedforwardnet(estrutura);
+            model.trainParam.showWindow = false;
+            % Concatenar os dados
+            dados = [dadosTreino; dadosValidacao; dadosTeste];
+
+            % Separar entradas e saídas
+            X = dados(:,1:end-1)';  % Entradas
+            Y = dados(:,end)';      % Saída (alvo)
+
+            % Determinar os índices
+            nTreino = size(dadosTreino, 1);
+            nVal    = size(dadosValidacao, 1);
+            nTeste  = size(dadosTeste, 1);
+
+            % Criar vetor de índices
+            trainInd = 1:nTreino;
+            valInd   = (nTreino+1):(nTreino+nVal);
+            testInd  = (nTreino+nVal+1):(nTreino+nVal+nTeste);
+
+            % Definir divisão na rede
+            model.divideFcn = 'divideind';
+            model.divideParam.trainInd = trainInd;
+            model.divideParam.valInd   = valInd;
+            model.divideParam.testInd  = testInd;
+            [model, tr] = train(model,X, Y);
+
+            % Calcular outputs da rede
+            outputs = model(X);
+
+            % Avaliar apenas nos dados de teste
+            testTargets = Y(tr.testInd);
+            testOutputs = outputs(tr.testInd);
+
+            % Calcular desempenho (MSE por padrão)
+            fit(s) = sqrt(perform(model, testTargets, testOutputs));
+            clear model;
+
         end
-        fitness(k) = mean(fit(:));
+        fitness(k) = mean(fit);
     end
     
     % Atualização das melhores posições individuais
@@ -163,23 +257,75 @@ for epoch = 1:max_epochs
     if min_fitness < gbest_fitness
         gbest_fitness = min_fitness;
         gbest = pbest(min_idx, :);
+        net = model;
     end
     
-    % Armazena histórico
-    best_fitness_hist(epoch) = gbest_fitness;
-    avg_fitness_hist(epoch) = mean(fitness);
+    y= net(X);
+    y_net1 = y(ind1);
+    y_net2 = y(ind2);
 
+    % Armazena histórico
+    avg_fitness_hist = mean(fitness);
+    
+    subplot(2,2,1)
+    plot(particles(:,1),particles(:,2),'bx','LineWidth',2,'MarkerSize',10)
+    hold on
+    plot(gbest(1),gbest(2),'ro','LineWidth',2,'MarkerSize',15)
+    grid on
+    grid minor
+    xlabel('Primeira Camada')
+    ylabel('Segunda Camada')
+    title('População')
+    xlim([-4 42])
+    ylim([-4 42])
+    hold off
+
+    subplot(2,2,2)
+    plot(k,mean(fitness),'bs-','LineWidth',1.5,'Markersize',6)
+    hold on
+    plot(k,gbest_fitness,'r*-','LineWidth',1.5,'Markersize',6)
+    grid on
+    grid minor
+    xlabel('Épocas')
+    ylabel('Fitness')
+    title('PSO - Época 0')
+    hold off
+    xlim([-3 53])
+    ylim([0 10])
+    legend('fitness avg','best fitness')
+
+    subplot(2,2,3)
+    plot(x1,y1,'bo','LineWidth',1.5,'MarkerSize',6)
+    hold on
+    plot(x1,y_net1,'k','LineWidth',3)
+    grid on
+    grid minor
+    xlabel('distância radial')
+    ylabel('atenuação janelada')
+    title('Cenário SF7 - HH - 50m')
+
+    subplot(2,2,4)
+    plot(x2,y2,'bo','LineWidth',1.5,'MarkerSize',6)
+    hold on
+    plot(x2,y_net2,'k','LineWidth',3)
+    grid on
+    grid minor
+    xlabel('distância radial')
+    ylabel('atenuação janelada')
+    title('Cenário SF7 - HH - 110m')
+
+    drawnow;
+    frame = getframe(fig);
+    writeVideo(video, frame);
 end
+
+close(video);
 delete(gcp);
 
-params.Weights = best_gbest;
-params.RMSETrain = best_gbest_fitness;
-params.RMSETest = fitnessTest;
-params.bestFitnessHistoryTrain = best_fitness_hist;
-params.bestFitnessHistoryValid = fitnessValid;
+params.BestNet = gbest;
+params.RMSE = gbest_fitness;
+params.bestFitness = gbest_fitness;
 params.bestEpoch = best_epoch;
-
-
 
     function particlesCorrigidas = corrigirParticulas(particles, min_neurons, max_neurons)
         % CORRIGIRPARTICULAS - Corrige partículas conforme restrições:
@@ -216,8 +362,4 @@ params.bestEpoch = best_epoch;
             particlesCorrigidas(i, :) = p;
         end
     end
-
-
-
-
 end
