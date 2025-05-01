@@ -140,9 +140,9 @@ ylim([-4 42])
 hold off
 
 subplot(2,2,2)
-plot(1,mean(fitness),'bs-','LineWidth',2);
+plot(0,mean(fitness),'bs-','LineWidth',2);
 hold on
-plot(1,min(fitness),'rs-','LineWidth',2)
+plot(0,min(fitness),'rs-','LineWidth',2)
 grid on
 grid minor
 xlabel('Épocas')
