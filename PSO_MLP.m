@@ -253,7 +253,7 @@ for epoch = 1:max_epochs
             % Calcular desempenho (MSE por padrão)
             fit(s) = sqrt(perform(model, testTargets, testOutputs));
 
-            if min(fit) < minimoSemente
+            if min(fit(s)) < minimoSemente
                 net = model;
                 sem = s;
             end
