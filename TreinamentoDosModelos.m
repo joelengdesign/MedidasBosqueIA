@@ -14,8 +14,8 @@ clear caminho_relativo
 
 %% Modelo 1 - MLP
 
-num_particles = 10;
-max_epochs = 50;
+num_particles = 15;
+max_epochs = 100;
 
 tic
 dadosMLP = PSO_MLP(DataTrain, DataValid, DataTest, num_particles, max_epochs);

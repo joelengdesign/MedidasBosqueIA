@@ -46,13 +46,13 @@ if ~exist(outputFolder, 'dir')
     mkdir(outputFolder);
 end
 
-videoPath = fullfile(outputFolder, 'EvolucaoTreinamentoPSOMLP.mp4');
+videoPath = fullfile(outputFolder, 'EvolucaoTreinamentoPSOMLP');
 video = VideoWriter(videoPath, 'Motion JPEG AVI');
 video.FrameRate = 15;
 open(video);
 
 minimoFit = Inf;
-parpool('local', 6, 'IdleTimeout', 9*3600);
+parpool('local', 6, 'IdleTimeout', 2*3600);
 for k=1:num_particles
     for s = 1:10
         rng(s)
@@ -116,7 +116,7 @@ ind2 = DataTest.Tabela_Atenuacao_Janelada.SF == SF &...
 
 x1 = DataTest.Tabela_Atenuacao_Janelada.distanciasR(ind1);
 y1 = DataTest.Tabela_Atenuacao_Janelada.atenuacao_media(ind1);
-y= net(X);
+y = net(X);
 y_net1 = y(ind1);
 
 x2 = DataTest.Tabela_Atenuacao_Janelada.distanciasR(ind2);
@@ -133,7 +133,7 @@ grid on
 grid minor
 xlabel('Primeira Camada')
 ylabel('Segunda Camada')
-title('População')
+title('Evolução da População')
 xlim([-4 42])
 ylim([-4 42])
 hold off
@@ -146,16 +146,16 @@ grid on
 grid minor
 xlabel('Épocas')
 ylabel('Fitness')
-title('PSO - Época 0')
+title('Evolução do treinamento')
 hold off
 xlim([-3 53])
 ylim([0 10])
-legend('fitness avg','best fitness')
+legend('avg fitness','best fitness')
 
 subplot(2,2,3)
 plot(x1,y1,'bo','LineWidth',1.5,'MarkerSize',6)
 hold on
-plot(x1,y_net1,'k','LineWidth',3)
+p1 = plot(x1,y_net1,'k','LineWidth',3)
 grid on
 grid minor
 xlabel('distância radial')
@@ -166,7 +166,7 @@ legend('Saída Real','MLP')
 subplot(2,2,4)
 plot(x2,y2,'bo','LineWidth',1.5,'MarkerSize',6)
 hold on
-plot(x2,y_net2,'k','LineWidth',3)
+p2 = plot(x2,y_net2,'k','LineWidth',3)
 grid on
 grid minor
 xlabel('distância radial')
@@ -176,6 +176,8 @@ legend('Saída Real','MLP')
 drawnow;
 frame = getframe(fig);
 writeVideo(video, frame);
+
+sgtitle('Época: 0')
 
 
 
@@ -240,11 +242,40 @@ for epoch = 1:max_epochs
 
             % Calcular desempenho (MSE por padrão)
             fit(s) = sqrt(perform(model, testTargets, testOutputs));
-   
+
         end
         fitness(k) = mean(fit);
+
+        y= net(X);
+        y_net1 = y(ind1);
+        y_net2 = y(ind2);
+
+        % Armazena histórico
+        avg_fitness_hist = mean(fitness);
+
+        subplot(2,2,1)
+        plot(particles(:,1),particles(:,2),'bx','LineWidth',2,'MarkerSize',10)
+        hold on
+        plot(gbest(1),gbest(2),'ro','LineWidth',2,'MarkerSize',15)
+
+        subplot(2,2,2)
+        plot(k,mean(fitness),'bs-','LineWidth',1.5,'Markersize',6)
+        hold on
+        plot(k,gbest_fitness,'r*-','LineWidth',1.5,'Markersize',6)
+
+        subplot(2,2,3)
+        set(p1, 'YData', y_net1);
+
+        subplot(2,2,4)
+        set(p2, 'YData', y_net2);
+
+        sgtitle(sprintf('Época: %d', k))
+
+        drawnow;
+        frame = getframe(fig);
+        writeVideo(video, frame);
     end
-    
+
     % Atualização das melhores posições individuais
     improved = fitness < pbest_fitness;
     pbest(improved, :) = particles(improved, :);
@@ -257,64 +288,6 @@ for epoch = 1:max_epochs
         gbest = pbest(min_idx, :);
         net = model;
     end
-    
-    y= net(X);
-    y_net1 = y(ind1);
-    y_net2 = y(ind2);
-
-    % Armazena histórico
-    avg_fitness_hist = mean(fitness);
-    
-    subplot(2,2,1)
-    plot(particles(:,1),particles(:,2),'bx','LineWidth',2,'MarkerSize',10)
-    hold on
-    plot(gbest(1),gbest(2),'ro','LineWidth',2,'MarkerSize',15)
-    grid on
-    grid minor
-    xlabel('Primeira Camada')
-    ylabel('Segunda Camada')
-    title('População')
-    xlim([-4 42])
-    ylim([-4 42])
-    hold off
-
-    subplot(2,2,2)
-    plot(k,mean(fitness),'bs-','LineWidth',1.5,'Markersize',6)
-    hold on
-    plot(k,gbest_fitness,'r*-','LineWidth',1.5,'Markersize',6)
-    grid on
-    grid minor
-    xlabel('Épocas')
-    ylabel('Fitness')
-    title('PSO - Época 0')
-    hold off
-    xlim([-3 53])
-    ylim([0 10])
-    legend('fitness avg','best fitness')
-
-    subplot(2,2,3)
-    plot(x1,y1,'bo','LineWidth',1.5,'MarkerSize',6)
-    hold on
-    plot(x1,y_net1,'k','LineWidth',3)
-    grid on
-    grid minor
-    xlabel('distância radial')
-    ylabel('atenuação janelada')
-    title('Cenário SF7 - HH - 50m')
-
-    subplot(2,2,4)
-    plot(x2,y2,'bo','LineWidth',1.5,'MarkerSize',6)
-    hold on
-    plot(x2,y_net2,'k','LineWidth',3)
-    grid on
-    grid minor
-    xlabel('distância radial')
-    ylabel('atenuação janelada')
-    title('Cenário SF7 - HH - 110m')
-
-    drawnow;
-    frame = getframe(fig);
-    writeVideo(video, frame);
 end
 
 close(video);
