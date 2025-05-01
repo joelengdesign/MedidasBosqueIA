@@ -3,7 +3,6 @@ clear,clc,close all
 %% Carregar os dados
 
 % CarregarDados
-addpath('utils','DadosSeparados')
 addpath(genpath('..'))
 load('SeparateData3.mat')
 
@@ -18,8 +17,8 @@ clear caminho_relativo
 num_particles = 10;
 max_epochs = 50;
 
-tic;
-dadosMLP = PSO_MLP(DataTrain, DataValid, DataTest, num_particles, max_epochs)
+tic
+dadosMLP = PSO_MLP(DataTrain, DataValid, DataTest, num_particles, max_epochs);
 tempo = toc;
 fprintf('Tempo de execução: %.4f horas\n', tempo/3600);
 %% Modelo 2 - Neurofuzzy

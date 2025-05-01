@@ -40,20 +40,19 @@ velocities = zeros(num_particles, num_dimensions);
 fig = figure('Visible', 'off');
 fig.Position = [100, 100, 1280, 720];  % Resolução do vídeo
 
-outputFolder = fullfile(pwd, '..', 'videos');
+outputFolder = fullfile(pwd,'videos');
 outputFolder = fullfile(outputFolder);  % resolve o caminho completo
 if ~exist(outputFolder, 'dir')
     mkdir(outputFolder);
 end
 
 videoPath = fullfile(outputFolder, 'EvolucaoTreinamentoPSOMLP.mp4');
-video = VideoWriter(videoPath, 'MPEG-4');
+video = VideoWriter(videoPath, 'Motion JPEG AVI');
 video.FrameRate = 15;
 open(video);
 
 minimoFit = Inf;
-
-parpool('IdleTimeout', 34560);
+parpool('local', 6, 'IdleTimeout', 9*3600);
 for k=1:num_particles
     for s = 1:10
         rng(s)
@@ -241,8 +240,7 @@ for epoch = 1:max_epochs
 
             % Calcular desempenho (MSE por padrão)
             fit(s) = sqrt(perform(model, testTargets, testOutputs));
-            clear model;
-
+   
         end
         fitness(k) = mean(fit);
     end
@@ -325,7 +323,6 @@ delete(gcp);
 params.BestNet = gbest;
 params.RMSE = gbest_fitness;
 params.bestFitness = gbest_fitness;
-params.bestEpoch = best_epoch;
 
     function particlesCorrigidas = corrigirParticulas(particles, min_neurons, max_neurons)
         % CORRIGIRPARTICULAS - Corrige partículas conforme restrições:
