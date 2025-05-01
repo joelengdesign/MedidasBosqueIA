@@ -48,12 +48,14 @@ end
 
 videoPath = fullfile(outputFolder, 'EvolucaoTreinamentoPSOMLP');
 video = VideoWriter(videoPath, 'Motion JPEG AVI');
+video.Quality = 100;
 video.FrameRate = 5;
 open(video);
 
 minimoFit = Inf;
 parpool('local', 6, 'IdleTimeout', 2*3600);
 for k=1:num_particles
+    minimoSemente = Inf;
     for s = 1:10
         rng(s)
         A = particles(k,:);
@@ -97,12 +99,17 @@ for k=1:num_particles
 
         % Calcular desempenho (MSE por padrão)
         fit(s) = sqrt(perform(model, testTargets, testOutputs));
+
+        if min(fit) < minimoSemente
+            net = model;
+        end
+
     end
     fitness(k) = mean(fit);
 
     if min(fitness) < minimoFit
         minimoFit = min(fitness);
-        net = model;
+        nett = net;
     end
 end
 
@@ -116,7 +123,7 @@ ind2 = DataTest.Tabela_Atenuacao_Janelada.SF == SF &...
 
 x1 = DataTest.Tabela_Atenuacao_Janelada.distanciasR(ind1);
 y1 = DataTest.Tabela_Atenuacao_Janelada.atenuacao_media(ind1);
-y = net(X);
+y = nett(X);
 y_net1 = y(ind1);
 
 x2 = DataTest.Tabela_Atenuacao_Janelada.distanciasR(ind2);
@@ -154,7 +161,6 @@ ylabel('Fitness')
 title('Evolução da fitness do PSO')
 hold off
 xlim([-3 max_epochs+3])
-ylim([0 10])
 legend('avg fitness','best fitness')
 
 subplot(2,2,3)
@@ -203,7 +209,7 @@ for epoch = 1:max_epochs
     particles = corrigirParticulas(particles, 5, 40);
 
     for k=1:num_particles
-        for s = 10:20
+        for s = 1:30
             rng(s)
             A = particles(k,:);
             if any(particles(k,:) == 0)
@@ -245,9 +251,14 @@ for epoch = 1:max_epochs
             testOutputs = outputs(tr.testInd);
 
             % Calcular desempenho (MSE por padrão)
-            fit(s-9) = sqrt(perform(model, testTargets, testOutputs));
+            fit(s) = sqrt(perform(model, testTargets, testOutputs));
 
+            if min(fit) < minimoSemente
+                net = model;
+                sem = s;
+            end
         end
+
         fitness(k) = mean(fit);
     end
 
@@ -261,11 +272,12 @@ for epoch = 1:max_epochs
     if min_fitness < gbest_fitness
         gbest_fitness = min_fitness;
         gbest = pbest(min_idx, :);
-        net = model;
+        nett = net;
+        semente = sem;
     end
 
-
-    y= net(X);
+    
+    y= nett(X);
     y_net1 = y(ind1);
     y_net2 = y(ind2);
 
@@ -301,9 +313,11 @@ end
 close(video);
 delete(gcp);
 
-params.BestNet = gbest;
+params.BestSolution = gbest;
+params.BestModel = nett;
 params.RMSE = gbest_fitness;
 params.bestFitness = gbest_fitness;
+params.bestSemente = semente;
 
     function particlesCorrigidas = corrigirParticulas(particles, min_neurons, max_neurons)
         % CORRIGIRPARTICULAS - Corrige partículas conforme restrições:
