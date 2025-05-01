@@ -100,7 +100,7 @@ for k=1:num_particles
         % Calcular desempenho (MSE por padrão)
         fit(s) = sqrt(perform(model, testTargets, testOutputs));
 
-        if min(fit) < minimoSemente
+        if min(fit(s)) < minimoSemente
             net = model;
         end
 
