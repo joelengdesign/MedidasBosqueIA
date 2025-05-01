@@ -126,9 +126,9 @@ y_net2 = y(ind2);
 
 subplot(2,2,1)
 [~,indiceBest] = min(fitness);
-plot(particles(:,1),particles(:,2),'bx','LineWidth',2,'MarkerSize',10)
+p1_0 = plot(particles(:,1),particles(:,2),'bx','LineWidth',2,'MarkerSize',10)
 hold on
-plot(particles(indiceBest,1),particles(indiceBest,2),'ro','LineWidth',2,'MarkerSize',15)
+p1_1 = plot(particles(indiceBest,1),particles(indiceBest,2),'ro','LineWidth',2,'MarkerSize',15);
 grid on
 grid minor
 xlabel('Primeira Camada')
@@ -139,9 +139,9 @@ ylim([-4 42])
 hold off
 
 subplot(2,2,2)
-plot(1,mean(fitness),'bs-','LineWidth',1.5,'Markersize',6)
+plot(1,mean(fitness),'bs-','LineWidth',2);
 hold on
-plot(1,min(fitness),'r*-','LineWidth',1.5,'Markersize',6)
+plot(1,min(fitness),'rs-','LineWidth',2)
 grid on
 grid minor
 xlabel('Épocas')
@@ -153,9 +153,9 @@ ylim([0 10])
 legend('avg fitness','best fitness')
 
 subplot(2,2,3)
-plot(x1,y1,'bo','LineWidth',1.5,'MarkerSize',6)
+plot(x1,y1,'bo','LineWidth',2,'MarkerSize',5)
 hold on
-p1 = plot(x1,y_net1,'k','LineWidth',3)
+p3 = plot(x1,y_net1,'ks-','LineWidth',3);
 grid on
 grid minor
 xlabel('distância radial')
@@ -166,19 +166,18 @@ legend('Saída Real','MLP')
 subplot(2,2,4)
 plot(x2,y2,'bo','LineWidth',1.5,'MarkerSize',6)
 hold on
-p2 = plot(x2,y_net2,'k','LineWidth',3)
+p4 = plot(x2,y_net2,'k','LineWidth',3);
 grid on
 grid minor
 xlabel('distância radial')
 ylabel('atenuação janelada')
 title('Cenário SF7 - HH - 110m')
 legend('Saída Real','MLP')
+sgtitle('Época: 0')
+
 drawnow;
 frame = getframe(fig);
 writeVideo(video, frame);
-
-sgtitle('Época: 0')
-
 
 
 % Inicialização das melhores posições
@@ -245,35 +244,6 @@ for epoch = 1:max_epochs
 
         end
         fitness(k) = mean(fit);
-
-        y= net(X);
-        y_net1 = y(ind1);
-        y_net2 = y(ind2);
-
-        % Armazena histórico
-        avg_fitness_hist = mean(fitness);
-
-        subplot(2,2,1)
-        plot(particles(:,1),particles(:,2),'bx','LineWidth',2,'MarkerSize',10)
-        hold on
-        plot(gbest(1),gbest(2),'ro','LineWidth',2,'MarkerSize',15)
-
-        subplot(2,2,2)
-        plot(k,mean(fitness),'bs-','LineWidth',1.5,'Markersize',6)
-        hold on
-        plot(k,gbest_fitness,'r*-','LineWidth',1.5,'Markersize',6)
-
-        subplot(2,2,3)
-        set(p1, 'YData', y_net1);
-
-        subplot(2,2,4)
-        set(p2, 'YData', y_net2);
-
-        sgtitle(sprintf('Época: %d', k))
-
-        drawnow;
-        frame = getframe(fig);
-        writeVideo(video, frame);
     end
 
     % Atualização das melhores posições individuais
@@ -288,6 +258,35 @@ for epoch = 1:max_epochs
         gbest = pbest(min_idx, :);
         net = model;
     end
+
+
+    y= net(X);
+    y_net1 = y(ind1);
+    y_net2 = y(ind2);
+
+    % Armazena histórico
+    avg_fitness_hist = mean(fitness);
+
+    subplot(2,2,1)
+    set(p1_0, 'XData', particles(:,1), 'YData', particles(:,2));
+    set(p1_1, 'XData', gbest(1), 'YData', gbest(2));
+
+    subplot(2,2,2)
+    plot(k,mean(fitness),'bs-','LineWidth',1.5,'Markersize',6)
+    hold on
+    plot(k,gbest_fitness,'r*-','LineWidth',1.5,'Markersize',6)
+
+    subplot(2,2,3)
+    set(p3, 'YData', y_net1);
+
+    subplot(2,2,4)
+    set(p4, 'YData', y_net2);
+
+    sgtitle(sprintf('Época: %d', epoch))
+
+    drawnow;
+    frame = getframe(fig);
+    writeVideo(video, frame);
 end
 
 close(video);
