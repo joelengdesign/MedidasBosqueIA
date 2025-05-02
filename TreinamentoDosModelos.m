@@ -4,7 +4,10 @@ clear,clc,close all
 
 % CarregarDados
 addpath(genpath('..'))
-load('SeparateData3.mat')
+load('SeparateDataStruct.mat')
+DataTrain = DataTrain{1};
+DataTest = DataTest{1};
+DataValid = DataValid{1};
 
 clear caminho_relativo
 
@@ -16,11 +19,24 @@ clear caminho_relativo
 
 num_particles = 30;
 max_epochs = 100;
+vetor1 = [14 4:5 12]; % distancia, SF, Altura
+nome1 = 'EvoluçãoPSO_dist_SF_altura';
+% vetor2 = [14 4:5 7 12]; % distancia, SF, Altura, polarização
+% nome2 = 'EvoluçãoPSO_dist_SF_altura_polarizacao';
+% vetor3 = [14 4 7 12]; % distancia, SF, polarização
+% nome3 = 'EvoluçãoPSO_dist_SF_polarizacao';
 
 tic
-dadosMLP = PSO_MLP(DataTrain, DataValid, DataTest, num_particles, max_epochs);
+dadosMLP = PSO_MLP(DataTrain, DataValid, DataTest,...
+    num_particles, max_epochs, vetor1, nome1);
 tempo = toc;
-fprintf('Tempo de execução: %.4f horas\n', tempo/3600);
+
+horas = floor(tempo / 3600);
+minutos = floor(mod(tempo, 3600) / 60);
+segundos = mod(tempo, 60);
+
+fprintf('Tempo de execução: %2h%dmin%dseg\n', horas, minutos, segundos);
+
 %% Modelo 2 - Neurofuzzy
 tic
 Opt = genfisOptions('FCMClustering');

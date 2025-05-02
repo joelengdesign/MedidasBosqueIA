@@ -14,7 +14,7 @@ SFsReferencia = SFsReferencia([SFsReferencia.isdir] & ~startsWith({SFsReferencia
 SF = {'SF7','SF9','SF12'};
 altura = [50 70 90 110];
 polarizacao = {'HH', 'HV', 'VH', 'VV'};
-janela = 3;
+janela = 5;
 
 % Inicializar tabelas vazias
 A_Treino = table();
@@ -329,5 +329,5 @@ end
 clearvars -except DataTrain DataValid DataTest
 
 
-caminho_relativo = 'DadosSeparados/SeparateDataStruct.mat'; % Caminho relativo
+caminho_relativo = '../DadosSeparados/SeparateDataStruct.mat';
 save(caminho_relativo);

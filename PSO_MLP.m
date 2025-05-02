@@ -1,52 +1,53 @@
-function params = PSO_MLP(DataTrain, DataValid, DataTest, num_particles, max_epochs)
+function params = PSO_MLP(DataTrain, DataValid, DataTest, num_particles, max_epochs, vetor, nome)
 
 SF = 12;
 polarizacao = 1;
 altura1 = 50;
 altura2 = 110;
 
-% separação dos dados para utilização dos model{s,k}os
-
-% ============= Entrada ============== %
-% distância entre Tx e RX em metros
-% Spreading Factor
-% Altura
-
-% ============== Saída ============== %
-% Atenuação - Pathloss(Referência) - Pathloss(Floresta)
-dadosTreino = DataTrain.Tabela_Atenuacao_Janelada{:,[14 4:5 12]};
+dadosTreino = DataTrain.Tabela_Atenuacao_Janelada{:,vetor};
 dadosTreino(:,1:end-1) = (dadosTreino(:,1:end-1) - min(dadosTreino(:,1:end-1), [], 1)) ./ (max(dadosTreino(:,1:end-1), [], 1) - min(dadosTreino(:,1:end-1), [], 1));
 
-dadosTeste = DataTest.Tabela_Atenuacao_Janelada{:,[14 4:5 12]};
+dadosTeste = DataTest.Tabela_Atenuacao_Janelada{:,vetor};
 dadosTeste(:,1:end-1) = (dadosTeste(:,1:end-1) - min(dadosTeste(:,1:end-1), [], 1)) ./ (max(dadosTeste(:,1:end-1), [], 1) - min(dadosTeste(:,1:end-1), [], 1));
 
-dadosValidacao = DataValid.Tabela_Atenuacao_Janelada{:,[14 4:5 12]};
+dadosValidacao = DataValid.Tabela_Atenuacao_Janelada{:,vetor};
 dadosValidacao(:,1:end-1) = (dadosValidacao(:,1:end-1) - min(dadosValidacao(:,1:end-1), [], 1)) ./ (max(dadosValidacao(:,1:end-1), [], 1) - min(dadosValidacao(:,1:end-1), [], 1));
 
-num_dimensions = 2;   % Quatro pesos (A, B, C, D)
+dados = [dadosTreino; dadosValidacao; dadosTeste];
+
+X = dados(:,1:end-1)';
+Y = dados(:,end)'; 
+
+nTreino = size(dadosTreino, 1);
+nVal    = size(dadosValidacao, 1);
+nTeste  = size(dadosTeste, 1);
+
+num_dimensions = 2; 
 min_val_fitness = inf;
-% Geração inicial das partículas normalizadas
 particles = round(40 * rand(num_particles, num_dimensions));
 particles = corrigirParticulas(particles, 5, 40);
-% particles = particles ./ sum(particles, 2);
 
 w = 0.9;             % Inércia inicial
 c1 = 1.2;           % Coeficiente cognitivo
 c2 = 1.2;           % Coeficiente social
 
-% Inicialização das partículas
 velocities = zeros(num_particles, num_dimensions);
 
-fig = figure('Visible', 'off');
-fig.Position = [100, 100, 1280, 720];  % Resolução do vídeo
+screenSize = get(0, 'ScreenSize');  % [x y largura altura]
+screenWidth = screenSize(3);
+screenHeight = screenSize(4);
+
+fig = figure('Visible', 'off', 'Position', [0, 0, screenWidth, screenHeight]);
+% fig = figure('Position', [0, 0, screenWidth, screenHeight]);
 
 outputFolder = fullfile(pwd,'videos');
-outputFolder = fullfile(outputFolder);  % resolve o caminho completo
+outputFolder = fullfile(outputFolder);
 if ~exist(outputFolder, 'dir')
     mkdir(outputFolder);
 end
 
-videoPath = fullfile(outputFolder, 'EvolucaoTreinamentoPSOMLP2');
+videoPath = fullfile(outputFolder, nome);
 video = VideoWriter(videoPath, 'Motion JPEG AVI');
 video.Quality = 100;
 video.FrameRate = 5;
@@ -55,58 +56,46 @@ open(video);
 minimoFit = Inf;
 parpool('local', 6, 'IdleTimeout', 2*3600); % pc do max
 % parpool('IdleTimeout', 15*3600); % meu pc
+
+defaultStream = RandStream.getGlobalStream();
 for k=1:num_particles
     minimoSemente = Inf;
-    for s = 1:10
-        rng(s)
+    tic
+    for s = 1:30
+        stream = RandStream('mrg32k3a', 'Seed', s);
+        RandStream.setGlobalStream(stream)
         A = particles(k,:);
         if any(particles(k,:) == 0)
             estrutura = A(A>0);
         else
             estrutura = A;
         end
-        model{s,k} = feedforwardnet(estrutura);
-        model{s,k}.trainParam.showWindow = false;
-        % Concatenar os dados
-        dados = [dadosTreino; dadosValidacao; dadosTeste];
+        model = feedforwardnet(estrutura);
+        model.trainParam.showWindow = false;
 
-        % Separar entradas e saídas
-        X = dados(:,1:end-1)';  % Entradas
-        Y = dados(:,end)';      % Saída (alvo)
-
-        % Determinar os índices
-        nTreino = size(dadosTreino, 1);
-        nVal    = size(dadosValidacao, 1);
-        nTeste  = size(dadosTeste, 1);
-
-        % Criar vetor de índices
         trainInd = 1:nTreino;
         valInd   = (nTreino+1):(nTreino+nVal);
         testInd  = (nTreino+nVal+1):(nTreino+nVal+nTeste);
 
-        % Definir divisão na rede
-        model{s,k}.divideFcn = 'divideind';
-        model{s,k}.divideParam.trainInd = trainInd;
-        model{s,k}.divideParam.valInd   = valInd;
-        model{s,k}.divideParam.testInd  = testInd;
-        [model{s,k}, tr] = train(model{s,k},X, Y);
+        model.divideFcn = 'divideind';
+        model.divideParam.trainInd = trainInd;
+        model.divideParam.valInd   = valInd;
+        model.divideParam.testInd  = testInd;
+        [model, tr] = train(model,X, Y);
 
-        % Calcular outputs da rede
-        outputs = model{s,k}(X);
+        outputs = model(X);
 
-        % Avaliar apenas nos dados de teste
         testTargets = Y(tr.testInd);
         testOutputs = outputs(tr.testInd);
 
-        % Calcular desempenho (MSE por padrão)
-        fit(s) = sqrt(perform(model{s,k}, testTargets, testOutputs));
+        fit(s) = sqrt(perform(model, testTargets, testOutputs));
 
         if min(fit(s)) < minimoSemente
-            net = model{s,k};
+            net = model;
             sem = s;
         end
-
     end
+    RandStream.setGlobalStream(defaultStream);
     fitness(k) = mean(fit);
 
     if min(fitness) < minimoFit
@@ -124,15 +113,16 @@ ind2 = DataTest.Tabela_Atenuacao_Janelada.SF == SF &...
     DataTest.Tabela_Atenuacao_Janelada.altura == altura2&...
     DataTest.Tabela_Atenuacao_Janelada.polarizacaoNum == polarizacao;
 
+y = nett(X);
+y_teste = y(tr.testInd);
+y_net1 = y_teste(ind1);
+y_net2 = y_teste(ind2);
+
 x1 = DataTest.Tabela_Atenuacao_Janelada.distanciasR(ind1);
 y1 = DataTest.Tabela_Atenuacao_Janelada.atenuacao_media(ind1);
-y = nett(X);
-y_net1 = y(ind1);
 
 x2 = DataTest.Tabela_Atenuacao_Janelada.distanciasR(ind2);
 y2 = DataTest.Tabela_Atenuacao_Janelada.atenuacao_media(ind2);
-y_net2 = y(ind2);
-
 
 subplot(2,2,1)
 [~,indiceBest] = min(fitness);
@@ -149,7 +139,6 @@ xlim([-4 42])
 ylim([-4 42])
 hold off
 
-
 x_data = 0;
 y_data1 = mean(fitness);
 y_data2 = min(fitness);
@@ -165,6 +154,7 @@ title('Evolução da fitness do PSO')
 hold off
 xlim([-3 max_epochs+3])
 legend('avg fitness','best fitness')
+hold off
 
 subplot(2,2,3)
 plot(x1,y1,'bo','LineWidth',2,'MarkerSize',5)
@@ -193,16 +183,12 @@ drawnow;
 frame = getframe(fig);
 writeVideo(video, frame);
 
-
-% Inicialização das melhores posições
 pbest = particles;
 pbest_fitness = fitness;
 [gbest_fitness, best_idx] = min(pbest_fitness);
 gbest = pbest(best_idx, :);
 
-% Loop principal do PSO
 for epoch = 1:max_epochs
-    % Atualização das velocidades e posições
     r1 = rand(num_particles, num_dimensions);
     r2 = rand(num_particles, num_dimensions);
     velocities = w * velocities + ...
@@ -212,65 +198,50 @@ for epoch = 1:max_epochs
     particles = corrigirParticulas(particles, 5, 40);
 
     for k=1:num_particles
+        minimoSemente = Inf;
         for s = 1:30
-            rng(s)
+            stream = RandStream('mrg32k3a', 'Seed', s);
+            RandStream.setGlobalStream(stream)
             A = particles(k,:);
             if any(particles(k,:) == 0)
                 estrutura = A(A>0);
             else
                 estrutura = A;
             end
-            model{s,k} = feedforwardnet(estrutura);
-            model{s,k}.trainParam.showWindow = false;
-            % Concatenar os dados
-            dados = [dadosTreino; dadosValidacao; dadosTeste];
+            model = feedforwardnet(estrutura);
+            model.trainParam.showWindow = false;
 
-            % Separar entradas e saídas
-            X = dados(:,1:end-1)';  % Entradas
-            Y = dados(:,end)';      % Saída (alvo)
-
-            % Determinar os índices
-            nTreino = size(dadosTreino, 1);
-            nVal    = size(dadosValidacao, 1);
-            nTeste  = size(dadosTeste, 1);
-
-            % Criar vetor de índices
             trainInd = 1:nTreino;
             valInd   = (nTreino+1):(nTreino+nVal);
             testInd  = (nTreino+nVal+1):(nTreino+nVal+nTeste);
 
-            % Definir divisão na rede
-            model{s,k}.divideFcn = 'divideind';
-            model{s,k}.divideParam.trainInd = trainInd;
-            model{s,k}.divideParam.valInd   = valInd;
-            model{s,k}.divideParam.testInd  = testInd;
-            [model{s,k}, tr] = train(model{s,k},X, Y);
+            model.divideFcn = 'divideind';
+            model.divideParam.trainInd = trainInd;
+            model.divideParam.valInd   = valInd;
+            model.divideParam.testInd  = testInd;
+            [model, tr] = train(model,X, Y);
 
-            % Calcular outputs da rede
-            outputs = model{s,k}(X);
+            outputs = model(X);
 
-            % Avaliar apenas nos dados de teste
             testTargets = Y(tr.testInd);
             testOutputs = outputs(tr.testInd);
 
             % Calcular desempenho (MSE por padrão)
-            fit(s) = sqrt(perform(model{s,k}, testTargets, testOutputs));
+            fit(s) = sqrt(perform(model, testTargets, testOutputs));
 
             if min(fit(s)) < minimoSemente
-                net = model{s,k};
+                net = model;
                 sem = s;
             end
         end
-
+        RandStream.setGlobalStream(defaultStream);
         fitness(k) = mean(fit);
     end
 
-    % Atualização das melhores posições individuais
     improved = fitness < pbest_fitness;
     pbest(improved, :) = particles(improved, :);
     pbest_fitness(improved) = fitness(improved);
 
-    % Atualização do melhor global
     [min_fitness, min_idx] = min(pbest_fitness);
     if min_fitness < gbest_fitness
         gbest_fitness = min_fitness;
@@ -279,14 +250,10 @@ for epoch = 1:max_epochs
         semente = sem;
     end
 
-    
-    y= nett(X);
-    y_net1 = y(ind1);
-    y_net2 = y(ind2);
-
-    % Armazena histórico
-    avg_fitness_hist = mean(fitness);
-    
+    y = nett(X);
+    y_teste = y(tr.testInd);
+    y_net1 = y_teste(ind1);
+    y_net2 = y_teste(ind2);
 
     x_data(end+1) = epoch;
     y_data1(end+1) = mean(fitness);
@@ -307,7 +274,7 @@ for epoch = 1:max_epochs
     set(p4, 'YData', y_net2);
 
     sgtitle(sprintf('Época: %d', epoch))
-
+    
     drawnow;
     frame = getframe(fig);
     writeVideo(video, frame);
@@ -317,36 +284,27 @@ close(video);
 delete(gcp);
 
 params.BestSolution = gbest;
-params.Bestmodel{s,k} = nett;
+params.Bestmodel = nett;
 params.RMSE = gbest_fitness;
 params.bestFitness = gbest_fitness;
 params.bestSemente = semente;
 
     function particlesCorrigidas = corrigirParticulas(particles, min_neurons, max_neurons)
-        % CORRIGIRPARTICULAS - Corrige partículas conforme restrições:
-        % 1. Ambas < min_neurons -> uma = min_neurons, outra = 0
-        % 2. Apenas uma < min_neurons -> essa vira 0, a outra permanece
-        % 3. Nenhuma camada pode ultrapassar max_neurons
-
         particlesCorrigidas = round(particles); % Arredonda os valores
 
         for i = 1:size(particlesCorrigidas, 1)
             p = particlesCorrigidas(i, :);
 
-            % Garante que não ultrapassem o máximo
             p(p > max_neurons) = max_neurons;
 
-            % Verifica quantas estão abaixo do mínimo
             below_min = p < min_neurons;
 
             if all(below_min)
-                % Ambas abaixo do mínimo → uma recebe min, a outra 0
                 idx = randi(2);
                 p(idx) = min_neurons;
                 p(3 - idx) = 0;
 
             elseif any(below_min)
-                % Apenas uma está abaixo → ela vira 0, a outra permanece
                 for j = 1:2
                     if p(j) < min_neurons && p(3 - j) >= min_neurons
                         p(j) = 0;
