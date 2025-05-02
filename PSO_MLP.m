@@ -5,7 +5,7 @@ polarizacao = 1;
 altura1 = 50;
 altura2 = 110;
 
-% separação dos dados para utilização dos modelos
+% separação dos dados para utilização dos model{s,k}os
 
 % ============= Entrada ============== %
 % distância entre Tx e RX em metros
@@ -46,16 +46,15 @@ if ~exist(outputFolder, 'dir')
     mkdir(outputFolder);
 end
 
-videoPath = fullfile(outputFolder, 'EvolucaoTreinamentoPSOMLP');
+videoPath = fullfile(outputFolder, 'EvolucaoTreinamentoPSOMLP2');
 video = VideoWriter(videoPath, 'Motion JPEG AVI');
 video.Quality = 100;
 video.FrameRate = 5;
 open(video);
 
 minimoFit = Inf;
-% parpool('local', 6, 'IdleTimeout', 2*3600); % pc do max
-parpool('IdleTimeout', 15*3600); % meu pc
-semente = 1;
+parpool('local', 6, 'IdleTimeout', 2*3600); % pc do max
+% parpool('IdleTimeout', 15*3600); % meu pc
 for k=1:num_particles
     minimoSemente = Inf;
     for s = 1:10
@@ -66,8 +65,8 @@ for k=1:num_particles
         else
             estrutura = A;
         end
-        model = feedforwardnet(estrutura);
-        model.trainParam.showWindow = false;
+        model{s,k} = feedforwardnet(estrutura);
+        model{s,k}.trainParam.showWindow = false;
         % Concatenar os dados
         dados = [dadosTreino; dadosValidacao; dadosTeste];
 
@@ -86,24 +85,25 @@ for k=1:num_particles
         testInd  = (nTreino+nVal+1):(nTreino+nVal+nTeste);
 
         % Definir divisão na rede
-        model.divideFcn = 'divideind';
-        model.divideParam.trainInd = trainInd;
-        model.divideParam.valInd   = valInd;
-        model.divideParam.testInd  = testInd;
-        [model, tr] = train(model,X, Y);
+        model{s,k}.divideFcn = 'divideind';
+        model{s,k}.divideParam.trainInd = trainInd;
+        model{s,k}.divideParam.valInd   = valInd;
+        model{s,k}.divideParam.testInd  = testInd;
+        [model{s,k}, tr] = train(model{s,k},X, Y);
 
         % Calcular outputs da rede
-        outputs = model(X);
+        outputs = model{s,k}(X);
 
         % Avaliar apenas nos dados de teste
         testTargets = Y(tr.testInd);
         testOutputs = outputs(tr.testInd);
 
         % Calcular desempenho (MSE por padrão)
-        fit(s) = sqrt(perform(model, testTargets, testOutputs));
+        fit(s) = sqrt(perform(model{s,k}, testTargets, testOutputs));
 
         if min(fit(s)) < minimoSemente
-            net = model;
+            net = model{s,k};
+            sem = s;
         end
 
     end
@@ -112,6 +112,7 @@ for k=1:num_particles
     if min(fitness) < minimoFit
         minimoFit = min(fitness);
         nett = net;
+        semente = sem;
     end
 end
 
@@ -219,8 +220,8 @@ for epoch = 1:max_epochs
             else
                 estrutura = A;
             end
-            model = feedforwardnet(estrutura);
-            model.trainParam.showWindow = false;
+            model{s,k} = feedforwardnet(estrutura);
+            model{s,k}.trainParam.showWindow = false;
             % Concatenar os dados
             dados = [dadosTreino; dadosValidacao; dadosTeste];
 
@@ -239,24 +240,24 @@ for epoch = 1:max_epochs
             testInd  = (nTreino+nVal+1):(nTreino+nVal+nTeste);
 
             % Definir divisão na rede
-            model.divideFcn = 'divideind';
-            model.divideParam.trainInd = trainInd;
-            model.divideParam.valInd   = valInd;
-            model.divideParam.testInd  = testInd;
-            [model, tr] = train(model,X, Y);
+            model{s,k}.divideFcn = 'divideind';
+            model{s,k}.divideParam.trainInd = trainInd;
+            model{s,k}.divideParam.valInd   = valInd;
+            model{s,k}.divideParam.testInd  = testInd;
+            [model{s,k}, tr] = train(model{s,k},X, Y);
 
             % Calcular outputs da rede
-            outputs = model(X);
+            outputs = model{s,k}(X);
 
             % Avaliar apenas nos dados de teste
             testTargets = Y(tr.testInd);
             testOutputs = outputs(tr.testInd);
 
             % Calcular desempenho (MSE por padrão)
-            fit(s) = sqrt(perform(model, testTargets, testOutputs));
+            fit(s) = sqrt(perform(model{s,k}, testTargets, testOutputs));
 
             if min(fit(s)) < minimoSemente
-                net = model;
+                net = model{s,k};
                 sem = s;
             end
         end
@@ -316,7 +317,7 @@ close(video);
 delete(gcp);
 
 params.BestSolution = gbest;
-params.BestModel = nett;
+params.Bestmodel{s,k} = nett;
 params.RMSE = gbest_fitness;
 params.bestFitness = gbest_fitness;
 params.bestSemente = semente;
