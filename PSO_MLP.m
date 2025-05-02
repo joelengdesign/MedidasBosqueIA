@@ -53,7 +53,9 @@ video.FrameRate = 5;
 open(video);
 
 minimoFit = Inf;
-parpool('local', 6, 'IdleTimeout', 2*3600);
+% parpool('local', 6, 'IdleTimeout', 2*3600); % pc do max
+parpool('IdleTimeout', 15*3600); % meu pc
+semente = 1;
 for k=1:num_particles
     minimoSemente = Inf;
     for s = 1:10
