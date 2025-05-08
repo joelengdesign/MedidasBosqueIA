@@ -15,27 +15,84 @@ clear caminho_relativo
 % UTILIZAR PSO PARA ESCOLHER AS MELHORES CONFIGURAÇÕES DE CADA MODELO 
 % UTILIZANDO K-FOLD E VARIAÇÃO DO RNG
 
-%% Modelo 1 - MLP
+%% MLP com EPSO
 
-num_particles = 30;
-max_epochs = 100;
-vetor1 = [14 4:5 12]; % distancia, SF, Altura
+addpath(genpath('utils'))
+
+global ff_par;
+
+ff_par.D = 2; % Quantidade de variáveis de decisão
+ff_par.Xmin = 0; % limite inferior
+ff_par.Xmax = 10; % limite superior
+
+popSize = 20;  % Um pouco maior que 20 para mais diversidade
+mutationRate = 0.7; % Aumentado para garantir exploração razoável
+communicationProbability = 0.4; % Um pouco menor para não convergir rápido demais
+maxGen = 200;  % Seu critério principal de parada
+maxGenWoChangeBest = 20; % Para detectar estagnação, mas sem parar cedo demais
+numSeeds = 1; % numero de avaliações de uma mesma partícula
+
+vetor1 = [14 4:5 12]; % distanlplcia, SF, Altura
 nome1 = 'EvoluçãoPSO_dist_SF_altura';
-% vetor2 = [14 4:5 7 12]; % distancia, SF, Altura, polarização
-% nome2 = 'EvoluçãoPSO_dist_SF_altura_polarizacao';
-% vetor3 = [14 4 7 12]; % distancia, SF, polarização
-% nome3 = 'EvoluçãoPSO_dist_SF_polarizacao';
 
 tic
-dadosMLP = PSO_MLP(DataTrain, DataValid, DataTest,...
+dadosMLP = EPSO(DataTrain, DataValid, DataTest, popSize, mutationRate, ...
+    communicationProbability, maxGen, maxGenWoChangeBest, numSeeds, vetor1, nome1);
+tempo = toc;
+
+horas = floor(tempo / 3600);
+minutos = floor(mod(tempo, 3600) / 60);
+segundos = mod(tempo, 60);
+dadosMLP.time = [horas minutos segundos];
+
+%% Modelo 1 - MLP
+
+num_particles = 15;
+max_epochs = 100;
+vetor1 = [14 4:5 12]; % distanlplcia, SF, Altura
+nome1 = 'EvoluçãoPSO_dist_SF_altura';
+vetor2 = [14 4:5 7 12]; % distancia, SF, Altura, polarização
+nome2 = 'EvoluçãoPSO_dist_SF_altura_polarizacao';
+vetor3 = [14 4 7 12]; % distancia, SF, polarização
+nome3 = 'EvoluçãoPSO_dist_SF_polarizacao';
+
+tic
+dadosMLP1 = PSO_MLP(DataTrain, DataValid, DataTest,...
     num_particles, max_epochs, vetor1, nome1);
 tempo = toc;
 
 horas = floor(tempo / 3600);
 minutos = floor(mod(tempo, 3600) / 60);
 segundos = mod(tempo, 60);
+dadosMLP1.time = [horas minutos segundos];
 
-fprintf('Tempo de execução: %2h%dmin%dseg\n', horas, minutos, segundos);
+fprintf('Tempo de Execução: %dh%dmin%dseg\n\n',dadosMLP1.time(1),dadosMLP1.time(2),dadosMLP1.time(3))
+%%
+tic
+dadosMLP2 = PSO_MLP(DataTrain, DataValid, DataTest,...
+    num_particles, max_epochs, vetor2, nome2);
+tempo = toc;
+
+horas = floor(tempo / 3600);
+minutos = floor(mod(tempo, 3600) / 60);
+segundos = mod(tempo, 60);
+dadosMLP2.time = [horas minutos segundos];
+
+fprintf('Tempo de Execução: %dh%dmin%dseg\n\n',dadosMLP2.time(1),dadosMLP2.time(2),dadosMLP1.time(3))
+
+save('a.mat')
+
+system('shutdown -s -t 0')
+%%
+tic
+dadosMLP3 = PSO_MLP(DataTrain, DataValid, DataTest,...
+    num_particles, max_epochs, vetor3, nome3);
+tempo = toc;
+
+horas = floor(tempo / 3600);
+minutos = floor(mod(tempo, 3600) / 60);
+segundos = mod(tempo, 60);
+dadosMLP3.time = [horas minutos segundos];
 
 %% Modelo 2 - Neurofuzzy
 tic
